@@ -141,7 +141,9 @@ extern NSString * _Nonnull const SBTUITunneledApplicationCommandSendWebSocketMes
 
 extern NSString * _Nonnull const SBTUITunneledApplicationCommandWebSocketConnectionState;
 
-extern NSString * _Nonnull const SBTUITunneledNSURLProtocolHTTPBodyKey;
+extern NSString * _Nonnull const SBTUITunneledNSURLProtocolLargeHTTPBodyKey;
+
+//extern NSString * _Nonnull const SBTUITunneledNSURLProtocolIsUploadTaskKey;
 
 #pragma mark - Classes
 

@@ -21,38 +21,40 @@
 
 @implementation NSURLRequest (HTTPBodyFix)
 
-// In Xcode 15+ CFNetwork emits a runtime warning when an upload task contains a body:
-//
-//     The request of a upload task should not contain a body or a body stream, use `upload(for:fromFile:)`,
-//     `upload(for:from:)`, or supply the body stream through the `urlSession(_:needNewBodyStreamForTask:)`
-//     delegate method.
-//
-// To work around this, we keep track of requests originating from upload tasks by swizzling in
-// `NSURLSession+HTTPBodyFix`.  For those tasks, we save the original body via NSURLProtocol and remove it
-// from the request to avoid the warning.
-//
-// When using a request body (e.g., when matching stubs), previously marked upload requests _must_ exclusively
-// reference the copy from NSURLProtocol because the request's `HTTPBody` was cleared.
-
-NSString * const SBTUITunneledNSURLProtocolIsUploadTaskKey = @"SBTUITunneledNSURLProtocolIsUploadTaskKey";
-
-+ (NSData *)sbt_readFromBodyStream:(NSInputStream *)stream
+- (NSData *)largeHTTPBody
 {
-    if (!stream) {
+    objc_getAssociatedObject(self, &SBTUITunneledNSURLProtocolLargeHTTPBodyKey);
+}
+
+- (void)setLargeHTTPBody:(NSData *)uploadHTTPBody
+{
+    objc_setAssociatedObject(self,
+                             &SBTUITunneledNSURLProtocolLargeHTTPBodyKey,
+                             uploadHTTPBody,
+                             OBJC_ASSOCIATION_RETAIN);
+}
+
+- (NSData *)sbt_HTTPBodyStreamData;
+{
+    if (!self.HTTPBodyStream) {
         return nil;
+    }
+    
+    if (self.HTTPBodyStream.streamStatus == NSStreamStatusClosed) {
+        return self.largeHTTPBody;
     }
 
     NSMutableData *data = [NSMutableData data];
     uint8_t buffer[4096];
 
-    BOOL shouldClose = (stream.streamStatus == NSStreamStatusNotOpen);
+    BOOL shouldClose = (self.HTTPBodyStream.streamStatus == NSStreamStatusNotOpen);
     if (shouldClose) {
-        [stream open];
+        [self.HTTPBodyStream open];
     }
 
     @try {
         NSInteger bytesRead;
-        while ((bytesRead = [stream read:buffer maxLength:sizeof(buffer)]) > 0) {
+        while ((bytesRead = [self.HTTPBodyStream read:buffer maxLength:sizeof(buffer)]) > 0) {
             [data appendBytes:buffer length:bytesRead];
         }
         if (bytesRead < 0) {
@@ -60,44 +62,28 @@ NSString * const SBTUITunneledNSURLProtocolIsUploadTaskKey = @"SBTUITunneledNSUR
         }
     } @finally {
         if (shouldClose) {
-            [stream close];
+            [self.HTTPBodyStream close];
         }
     }
-
+    
+    self.largeHTTPBody = data;
+    
     return data.length > 0 ? data : nil;
 }
 
-- (NSData *)sbt_uploadHTTPBody
-{
-    // First try getting from property storage (existing behavior)
-    NSData *bodyData = [SBTRequestPropertyStorage propertyForKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:self];
-    
-    // If no stored data, try direct HTTPBody
-    if (!bodyData) {
-        bodyData = [self HTTPBody];
-    }
-    
-    // If still no data, try reading from stream
-    if (!bodyData && [self HTTPBodyStream]) {
-        bodyData = [NSURLRequest sbt_readFromBodyStream:[self HTTPBodyStream]];
-    }
-    
-    return bodyData;
-}
-
-- (BOOL)sbt_isUploadTaskRequest
-{
-    return ([SBTRequestPropertyStorage propertyForKey:SBTUITunneledNSURLProtocolIsUploadTaskKey inRequest:self] != nil);
-}
-
-- (void)sbt_markUploadTaskRequest
-{
-    NSAssert([self isKindOfClass:[NSMutableURLRequest class]], @"Attempted to mark an immutable request as an upload");
-
-    if ([self isKindOfClass:[NSMutableURLRequest class]]) {
-        [SBTRequestPropertyStorage setProperty:@YES forKey:SBTUITunneledNSURLProtocolIsUploadTaskKey inRequest:(NSMutableURLRequest *)self];
-    }
-}
+//- (BOOL)sbt_isUploadTaskRequest
+//{
+//    return ([SBTRequestPropertyStorage propertyForKey:SBTUITunneledNSURLProtocolIsUploadTaskKey inRequest:self] != nil);
+//}
+//
+//- (void)sbt_markUploadTaskRequest
+//{
+//    NSAssert([self isKindOfClass:[NSMutableURLRequest class]], @"Attempted to mark an immutable request as an upload");
+//
+//    if ([self isKindOfClass:[NSMutableURLRequest class]]) {
+//        [SBTRequestPropertyStorage setProperty:@YES forKey:SBTUITunneledNSURLProtocolIsUploadTaskKey inRequest:(NSMutableURLRequest *)self];
+//    }
+//}
 
 - (NSURLRequest *)sbt_copyWithoutBody
 {
@@ -119,42 +105,37 @@ NSString * const SBTUITunneledNSURLProtocolIsUploadTaskKey = @"SBTUITunneledNSUR
 
 - (NSData *)swz_HTTPBody
 {
-    // upload tasks will trigger a runtime warning if their body is non-nil, see note above
-    if ([self sbt_isUploadTaskRequest]) {
-        return nil;
-    }
+//    // upload tasks will trigger a runtime warning if their body is non-nil, see note above
+//    if ([self sbt_isUploadTaskRequest]) {
+//        return nil;
+//    }
 
-    NSData *ret = [self swz_HTTPBody];
+    return [self swz_HTTPBody];
         
-    return ret ?: [SBTRequestPropertyStorage propertyForKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:self];
+    //return ret ?: self.largeHTTPBody;
 }
 
 - (id)swz_copyWithZone:(NSZone *)zone
 {
-    NSURLRequest *ret = [self swz_copyWithZone:zone];
-    
-    if ([ret isKindOfClass:[NSMutableURLRequest class]]) {
-        NSData *body = [SBTRequestPropertyStorage propertyForKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:self];
-        if (body) {
-            [SBTRequestPropertyStorage setProperty:body forKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:(NSMutableURLRequest *)ret];
-        }
-    }
-    
-    return ret;
+    NSMutableURLRequest *ret = [self mutableCopy];
+    ret.largeHTTPBody = self.largeHTTPBody;
+    return [ret swz_copyWithZone:zone];
 }
 
 - (id)swz_mutableCopyWithZone:(NSZone *)zone
 {
     NSMutableURLRequest *ret = [self swz_mutableCopyWithZone:zone];
-    
-    if ([ret isKindOfClass:[NSMutableURLRequest class]]) {
-        NSData *body = [SBTRequestPropertyStorage propertyForKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:self];
-        if (body) {
-            [SBTRequestPropertyStorage setProperty:body forKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:(NSMutableURLRequest *)ret];
-        }
-    }
-    
+    ret.largeHTTPBody = self.largeHTTPBody;
     return ret;
+}
+
+- (id)portableCopy
+{
+    NSMutableURLRequest *mutableCopy = [self mutableCopy];
+    //[NSURLProtocol removePropertyForKey:SBTUITunneledNSURLProtocolIsUploadTaskKey inRequest:mutableCopy];
+    //[NSURLProtocol removePropertyForKey:SBTUITunneledNSURLProtocolLargeHTTPBodyKey inRequest:mutableCopy];
+    mutableCopy.HTTPBody = mutableCopy.HTTPBody ?: self.largeHTTPBody;
+    return [mutableCopy copy];
 }
 
 + (void)load
@@ -171,10 +152,10 @@ NSString * const SBTUITunneledNSURLProtocolIsUploadTaskKey = @"SBTUITunneledNSUR
 {
     if ([self HTTPBody]) {
         return [self HTTPBody];
-    } else if ([self HTTPBodyStream]) {
-        return [NSURLRequest sbt_readFromBodyStream:[self HTTPBodyStream]];
-    } else if ([self sbt_isUploadTaskRequest]) {
-        return [self sbt_uploadHTTPBody];
+    } else if (self.largeHTTPBody) {
+        return self.largeHTTPBody;
+    } else if (self.sbt_HTTPBodyStreamData) {
+        return self.sbt_HTTPBodyStreamData;
     }
     return nil;
 }

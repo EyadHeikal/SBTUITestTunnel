@@ -18,6 +18,7 @@
 #import "include/SBTRequestMatch.h"
 #import "include/SBTRequestPropertyStorage.h"
 #import "include/SBTUITestTunnel.h"
+#import "include/NSURLRequest+HTTPBodyFix.h"
 #import "private/NSData+gzip.h"
 
 @implementation SBTMonitoredNetworkRequest : NSObject
@@ -48,13 +49,11 @@
     [encoder encodeDouble:self.timestamp forKey:NSStringFromSelector(@selector(timestamp))];
     [encoder encodeDouble:self.requestTime forKey:NSStringFromSelector(@selector(requestTime))];
     
-    NSMutableURLRequest *fixedRequest = [self.request mutableCopy];
-    fixedRequest.HTTPBody = [SBTRequestPropertyStorage propertyForKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:self.request];
-    [encoder encodeObject:fixedRequest forKey:NSStringFromSelector(@selector(request))];
+    NSMutableURLRequest *portableRequest = [self.request portableCopy];
+    [encoder encodeObject:portableRequest forKey:NSStringFromSelector(@selector(request))];
     
-    NSMutableURLRequest *fixedOriginalRequest = [self.originalRequest mutableCopy];
-    fixedOriginalRequest.HTTPBody = [SBTRequestPropertyStorage propertyForKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:self.originalRequest];
-    [encoder encodeObject:fixedOriginalRequest forKey:NSStringFromSelector(@selector(originalRequest))];
+    NSMutableURLRequest *portableOriginalRequest = [self.originalRequest portableCopy];
+    [encoder encodeObject:portableOriginalRequest forKey:NSStringFromSelector(@selector(originalRequest))];
     
     [encoder encodeObject:self.response forKey:NSStringFromSelector(@selector(response))];
     [encoder encodeObject:self.responseData forKey:NSStringFromSelector(@selector(responseData))];

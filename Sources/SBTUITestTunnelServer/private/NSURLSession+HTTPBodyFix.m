@@ -26,10 +26,10 @@
     NSURLRequest *requestWithoutBody = [request sbt_copyWithoutBody];
 
     if ([requestWithoutBody isKindOfClass:[NSMutableURLRequest class]] && bodyData) {
-        [SBTRequestPropertyStorage setProperty:bodyData forKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:(NSMutableURLRequest *)requestWithoutBody];
+        requestWithoutBody.largeHTTPBody = bodyData;
 
         // mark this as an upload request so future code knows to find the body via NSURLProtocol instead
-        [requestWithoutBody sbt_markUploadTaskRequest];
+        //[requestWithoutBody sbt_markUploadTaskRequest];
     }
     
     return [self swz_uploadTaskWithRequest:requestWithoutBody fromData:bodyData];
@@ -43,10 +43,10 @@
     if ([requestWithoutBody isKindOfClass:[NSMutableURLRequest class]]) {
         NSData *bodyData = [NSData dataWithContentsOfURL:fileURL];
         if (bodyData) {
-            [SBTRequestPropertyStorage setProperty:bodyData forKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:(NSMutableURLRequest *)requestWithoutBody];
+            requestWithoutBody.largeHTTPBody = bodyData;
 
             // mark this as an upload request so future code knows to find the body via NSURLProtocol instead
-            [requestWithoutBody sbt_markUploadTaskRequest];
+            //[requestWithoutBody sbt_markUploadTaskRequest];
         }
     }
     
@@ -59,10 +59,10 @@
     NSURLRequest *requestWithoutBody = [request sbt_copyWithoutBody];
 
     if ([requestWithoutBody isKindOfClass:[NSMutableURLRequest class]] && bodyData) {
-        [SBTRequestPropertyStorage setProperty:bodyData forKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:(NSMutableURLRequest *)requestWithoutBody];
+        requestWithoutBody.largeHTTPBody = bodyData;
 
         // mark this as an upload request so future code knows to find the body via NSURLProtocol instead
-        [requestWithoutBody sbt_markUploadTaskRequest];
+        //[requestWithoutBody sbt_markUploadTaskRequest];
     }
 
     return [self swz_uploadTaskWithRequest:requestWithoutBody fromData:bodyData completionHandler:completionHandler];
@@ -75,18 +75,18 @@
 
 - (NSURLSessionDataTask *)swz_dataTaskWithRequest:(NSURLRequest *)request
 {
-    if ([request isKindOfClass:[NSMutableURLRequest class]] && request.HTTPBody) {
-        [SBTRequestPropertyStorage setProperty:request.HTTPBody forKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:(NSMutableURLRequest *)request];
-    }
+//    if ([request isKindOfClass:[NSMutableURLRequest class]] && request.HTTPBody) {
+//        [SBTRequestPropertyStorage setProperty:request.HTTPBody forKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:(NSMutableURLRequest *)request];
+//    }
     
     return [self swz_dataTaskWithRequest:request];
 }
 
 - (NSURLSessionDataTask *)swz_dataTaskWithRequest:(NSURLRequest *)request completionHandler:(void (^)(NSData *data, NSURLResponse *response, NSError *error))completionHandler
 {
-    if ([request isKindOfClass:[NSMutableURLRequest class]] && request.HTTPBody) {
-        [SBTRequestPropertyStorage setProperty:request.HTTPBody forKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:(NSMutableURLRequest *)request];
-    }
+//    if ([request isKindOfClass:[NSMutableURLRequest class]] && request.HTTPBody) {
+//        [SBTRequestPropertyStorage setProperty:request.HTTPBody forKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:(NSMutableURLRequest *)request];
+//    }
     
     return [self swz_dataTaskWithRequest:request completionHandler:completionHandler];
 }

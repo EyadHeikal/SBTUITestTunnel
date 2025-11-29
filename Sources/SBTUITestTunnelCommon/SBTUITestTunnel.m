@@ -136,7 +136,22 @@ NSString * const SBTUITunneledApplicationCommandFlushWebSocketMessages = @"comma
 NSString * const SBTUITunneledApplicationCommandSendWebSocketMessage = @"commandSendWebSocketMessage";
 NSString * const SBTUITunneledApplicationCommandWebSocketConnectionState = @"commandWebSocketConnectionState";
 
-NSString * const SBTUITunneledNSURLProtocolHTTPBodyKey = @"SBTUITunneledNSURLProtocolHTTPBodyKey";
+NSString * const SBTUITunneledNSURLProtocolLargeHTTPBodyKey = @"SBTUITunneledNSURLProtocolLargeHTTPBodyKey";
+
+// In Xcode 15+ CFNetwork emits a runtime warning when an upload task contains a body:
+//
+//     The request of a upload task should not contain a body or a body stream, use `upload(for:fromFile:)`,
+//     `upload(for:from:)`, or supply the body stream through the `urlSession(_:needNewBodyStreamForTask:)`
+//     delegate method.
+//
+// To work around this, we keep track of requests originating from upload tasks by swizzling in
+// `NSURLSession+HTTPBodyFix`.  For those tasks, we save the original body via NSURLProtocol and remove it
+// from the request to avoid the warning.
+//
+// When using a request body (e.g., when matching stubs), previously marked upload requests _must_ exclusively
+// reference the copy from NSURLProtocol because the request's `HTTPBody` was cleared.
+
+//NSString * const SBTUITunneledNSURLProtocolIsUploadTaskKey = @"SBTUITunneledNSURLProtocolIsUploadTaskKey"; // remove?
 
 @implementation SBTUITunnelStartupCommand
 
