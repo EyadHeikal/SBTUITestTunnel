@@ -158,11 +158,10 @@
 - (id)sendableCopy
 {
     NSMutableURLRequest *copy = [self mutableCopy];
-    if (copy.HTTPBody == nil) {
-        copy.HTTPBody = [SBTRequestPropertyStorage propertyForKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:self];
-    }
+    NSData *body = [SBTRequestPropertyStorage propertyForKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:self] ?: [self HTTPBody];
     [NSURLProtocol removePropertyForKey:SBTUITunneledNSURLProtocolHTTPBodyKey inRequest:copy];
     [NSURLProtocol removePropertyForKey:SBTUITunneledNSURLProtocolIsUploadTaskKey inRequest:copy];
+    copy.HTTPBody = body;
     return copy;
 }
 

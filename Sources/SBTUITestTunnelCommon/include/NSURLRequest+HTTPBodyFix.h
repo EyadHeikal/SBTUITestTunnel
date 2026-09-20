@@ -46,6 +46,6 @@
 - (NSURLRequest *)sbt_copyWithoutBody;
 
 /// Returns a copy that is sendable to another process
-- (id)sendableCopy;
+- (nonnull id)sendableCopy;
 
 @end
