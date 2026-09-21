@@ -15,6 +15,12 @@ let package = Package(
             name: "SBTUITestTunnelClient",
             targets: ["SBTUITestTunnelClient"]
         ),
+        // The Objective-C entry point. `SBTUITestTunnelClient` is a Swift module, which
+        // Objective-C cannot `@import`, so an Objective-C test target links this instead.
+        .library(
+            name: "SBTUITestTunnelClientObjC",
+            targets: ["SBTUITestTunnelClientObjC"]
+        ),
     ],
     targets: [
         .target(
